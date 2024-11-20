@@ -1,0 +1,40 @@
+# Entornos virtuales
+venv/
+env/
+
+# Archivos de configuración del entorno
+.env
+*.env
+
+# Archivos y carpetas generados automáticamente
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Archivos de logs
+*.log
+logs/
+
+# Archivos relacionados con sistemas de IDE
+.vscode/
+.idea/
+
+# Dependencias instaladas
+*.egg-info/
+build/
+dist/
+
+# Archivos específicos de Python
+*.sqlite3
+*.db
+.DS_Store
+
+# Carpeta de configuración de pytest
+.pytest_cache/
+
+# Archivos temporales
+*.swp
+*.tmp
+
+# Archivos de Docker (opcional si usas Docker)
+docker-compose.override.yml
