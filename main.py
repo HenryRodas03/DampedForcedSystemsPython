@@ -16,6 +16,7 @@ app.add_middleware(
 
 # Modelo para la entrada de datos
 class SimulationInput(BaseModel):
+    rlc: bool
     m: float
     k: float
     b: float
@@ -25,8 +26,10 @@ class SimulationInput(BaseModel):
     fT1: float
     fT2: float
 
-def particularFunction (m: float, k: float, b: float,ftType: int, fT1: float, fT2: float):
+def particularFunction (rlc:bool, m: float, k: float, b: float,ftType: int, fT1: float, fT2: float):
     t = sp.symbols('t')  # Variable de tiempo
+
+
 
     # Calcular valores
     if ftType == 1:
@@ -46,8 +49,11 @@ def particularFunction (m: float, k: float, b: float,ftType: int, fT1: float, fT
         yp_prime = sp.diff(yp, t)
         yp_double_prime = sp.diff(yp_prime, t)
 
-        # Sustitución en la ecuación diferencial
-        lhs = yp_double_prime + (b/m) * yp_prime + (k/m) * yp - (ft/m)
+        if rlc:
+            # Sustitución en la ecuación diferencial
+            lhs =  m* yp_double_prime + b * yp_prime + yp/k - ft
+        else:
+            lhs = yp_double_prime + (b/m) * yp_prime + (k/m) * yp - (ft/m)
 
         # Resolver para A y B
         equations = [lhs.coeff(sp.sin(fT2 * t)), lhs.coeff(sp.cos(fT2 * t))]
@@ -74,9 +80,11 @@ def particularFunction (m: float, k: float, b: float,ftType: int, fT1: float, fT
         yp_prime = sp.diff(yp, t)
         yp_double_prime = sp.diff(yp_prime, t)
 
-        # Sustitución en la ecuación diferencial
-        lhs = yp_double_prime + (b/m) * yp_prime + (k/m) * yp - (ft/m)
-
+        if rlc:
+            # Sustitución en la ecuación diferencial
+            lhs =  m* yp_double_prime + b * yp_prime + yp/k - ft
+        else:
+            lhs = yp_double_prime + (b/m) * yp_prime + (k/m) * yp - (ft/m)
         # Resolver para A y B
         equations = sp.collect(lhs, [A, B])  # Agrupar términos dependientes de A y B
         coefficients = sp.solve(equations, (A, B))
@@ -101,15 +109,20 @@ def particularFunction (m: float, k: float, b: float,ftType: int, fT1: float, fT
 
 
 
-def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int, fT1: float, fT2: float):
+def solve_motion(rlc:bool, m: float, k: float, b: float, c1: float, c2: float, ftType: int, fT1: float, fT2: float):
     t = sp.symbols('t')  # Variable de tiempo
     sistemtype = ""
     # Convertir fT1 y fT2 a float si no lo son
     fT1 = float(fT1)
     fT2 = float(fT2)
 
-    # Cálculo de la expresión para resolv
-    resolv = ((b / (2 * m))**2) - (k / m)
+    if rlc :
+        # Cálculo de la expresión para resolv
+        resolv = ((b / (2 * m))**2) - (1 / (k*m))
+
+    else:
+        resolv = ((b / (2 * m))**2) - (k / m)
+
 
     # Condición para modificar el valor de resolv
     if resolv > 0:
@@ -123,7 +136,7 @@ def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int
         vt = sp.diff(complementary_solution, t)
         at = sp.diff(vt, t)
 
-        particular_solution = particularFunction(m,k,b,ftType,fT1,fT2)
+        particular_solution = particularFunction(rlc,m,k,b,ftType,fT1,fT2)
 
         total_solution = complementary_solution + particular_solution
         
@@ -135,7 +148,7 @@ def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int
         # Construir la solución complementaria
         complementary_solution = c1 * t * sp.exp(l * t) + c2 * sp.exp(l * t)
 
-        particular_solution = particularFunction(m,k,b,ftType,fT1,fT2)
+        particular_solution = particularFunction(rlc,m,k,b,ftType,fT1,fT2)
 
         vt = sp.diff(complementary_solution, t)
         at = sp.diff(vt, t)
@@ -148,7 +161,14 @@ def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int
     else:
         a = round(b / (2 * m), 3)
 
-        wd = round(float(sp.sqrt(abs(((k/m)**2)-(a**2)))), 3)
+        if rlc :
+            wd = round(float(sp.sqrt(abs((1/(m * k))-(a**2)))), 3)
+
+        else:
+            wd = round(float(sp.sqrt(abs(((k/m)**2)-(a**2)))), 3)
+
+
+
   
         # Construir la solución complementaria
         complementary_solution = sp.exp(-a*t) * (c1 * sp.cos(wd * t) + c2 * sp.sin(wd * t))
@@ -156,7 +176,7 @@ def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int
         vt = sp.diff(complementary_solution, t)
         at = sp.diff(vt, t)
 
-        particular_solution = particularFunction(m,k,b,ftType,fT1,fT2)
+        particular_solution = particularFunction(rlc,m,k,b,ftType,fT1,fT2)
 
         total_solution = complementary_solution + particular_solution
 
@@ -175,7 +195,9 @@ def solve_motion(m: float, k: float, b: float, c1: float, c2: float, ftType: int
 
 @app.post("/simulate")
 async def simulate(input_data: SimulationInput):
+    
     result = solve_motion(
+        input_data.rlc,
         input_data.m,
         input_data.k,
         input_data.b,
